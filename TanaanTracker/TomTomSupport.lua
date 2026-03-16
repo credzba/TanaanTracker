@@ -68,29 +68,22 @@ function TanaanTracker.AttachTomTomButtons(row, rareName, anchorTo)
     tomSet:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     -------------------------------------------------------------
-    -- CLEAR: remove all active TomTom waypoints + arrow
+    -- CLEAR: find and remove only this rare's waypoint by title
     -------------------------------------------------------------
     tomClear:SetScript("OnClick", function()
         if not TomTom then print("TomTom not found."); return end
-        if TomTom.waypoints then
-            for _, wpList in pairs(TomTom.waypoints) do
-                for _, waypoint in pairs(wpList) do
-                    TomTom:RemoveWaypoint(waypoint)
+        local info = TanaanTracker.rares[rareName]
+        local mapID = info and info.mapID or 945
+        if TomTom.waypoints and TomTom.waypoints[mapID] then
+            for _, uid in pairs(TomTom.waypoints[mapID]) do
+                if uid.title == rareName then
+                    TomTom:RemoveWaypoint(uid)
+                    print(string.format("TomTom waypoint cleared for %s", rareName))
+                    return
                 end
             end
-            if TomTom.HideCrazyArrow then TomTom:HideCrazyArrow() end
-            print("TomTom waypoints cleared.")
-        else
-            if TomTom.HideCrazyArrow then
-                TomTom:HideCrazyArrow()
-                print("TomTom arrow hidden.")
-            elseif TomTom.ClearAllWaypoints then
-                TomTom:ClearAllWaypoints()
-                print("TomTom waypoints cleared (fallback).")
-            else
-                print("TomTom arrow could not be cleared.")
-            end
         end
+        print(string.format("No active waypoint found for %s", rareName))
     end)
 
     tomClear:SetScript("OnEnter", function()
