@@ -46,10 +46,18 @@ function TanaanTracker.AttachTomTomButtons(row, rareName, anchorTo)
         local x, y = tonumber(info.coords[1]), tonumber(info.coords[2])
         if not x or not y then print("Invalid coordinates for " .. rareName); return end
 
-        local zone = "Tanaan Jungle"
-        local title = rareName
-        TanaanTracker:RunSlash(string.format("/way %s %.2f %.2f %s", zone, x, y, title))
-        print(string.format("TomTom waypoint set for %s (%.2f, %.2f)", rareName, x, y))
+        local mapID = info.mapID or 945
+        local uid = TomTom:AddMFWaypoint(mapID, nil, x / 100, y / 100, {
+            title      = rareName,
+            persistent = true,
+            minimap    = true,
+            world      = true,
+        })
+        if uid then
+            print(string.format("TomTom waypoint set for %s (%.2f, %.2f)", rareName, x, y))
+        else
+            print(string.format("TomTom waypoint FAILED for %s - mapID %d not recognised", rareName, mapID))
+        end
     end)
 
     tomSet:SetScript("OnEnter", function()
@@ -76,9 +84,11 @@ function TanaanTracker.AttachTomTomButtons(row, rareName, anchorTo)
             if TomTom.HideCrazyArrow then
                 TomTom:HideCrazyArrow()
                 print("TomTom arrow hidden.")
+            elseif TomTom.ClearAllWaypoints then
+                TomTom:ClearAllWaypoints()
+                print("TomTom waypoints cleared (fallback).")
             else
-                TanaanTracker:RunSlash("/cway")
-                print("TomTom arrow cleared (fallback).")
+                print("TomTom arrow could not be cleared.")
             end
         end
     end)

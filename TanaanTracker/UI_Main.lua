@@ -52,66 +52,92 @@ function TanaanTracker.CreateMainFrame()
         -------------------------------------------------------------
     -- Realm dropdown (view-only)
     -------------------------------------------------------------
-    local realmDropdown = CreateFrame("Frame", "TanaanTrackerRealmDropdown", f, "UIDropDownMenuTemplate")
-    realmDropdown:SetPoint("TOP", f, "TOP", -17, -7)
-    f.realmDropdown = realmDropdown
+    -- Taint-free realm selector (replaces UIDropDownMenuTemplate which caused
+    -- JoinBattlefield() taint via the shared UIDropDownMenuInfo global)
+    local realmBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    realmBtn:SetSize(170, 22)
+    realmBtn:SetPoint("TOP", f, "TOP", -17, -12)
+    realmBtn:SetText(TanaanTracker.currentRealmView or GetRealmName() or "Unknown")
+    f.realmBtn = realmBtn
     f._titleFS = title
-    -- ElvUI skinning (inline)
-    if ElvUI and ElvUI[1] and ElvUI[1].GetModule then
-        local E = ElvUI[1]
-        local S = E:GetModule("Skins", true)
-        if S and S.HandleDropDownBox then
-            S:HandleDropDownBox(realmDropdown, 170)
-            realmDropdown._elvSkinned = true
-        end
-    end
 
-    local function SortedRealmNames()
-        local out = {}
+    -- Custom dropdown list (no UIDropDownMenuTemplate, no shared globals)
+    local realmList = CreateFrame("Frame", nil, f)
+    realmList:SetSize(170, 10)
+    realmList:SetFrameLevel(f:GetFrameLevel() + 10)
+    realmList:SetBackdrop({
+        bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    realmList:SetBackdropColor(0.06, 0.06, 0.09, 0.97)
+    realmList:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+    realmList:Hide()
+    f.realmList = realmList
+
+    local function RefreshRealmList()
+        for _, child in ipairs({realmList:GetChildren()}) do
+            child:Hide()
+            child:SetParent(nil)
+        end
+
+        local realms = {}
         if TanaanTrackerDB and TanaanTrackerDB.realms then
             for k in pairs(TanaanTrackerDB.realms) do
-                out[#out+1] = k
+                realms[#realms + 1] = k
             end
         end
-        table.sort(out)
-        return out
-    end
+        table.sort(realms)
 
-    -- Populate dropdown
-    f._PopulateRealms = function(self, level)
-        local info = UIDropDownMenu_CreateInfo()
-        local current = TanaanTracker.currentRealmView or (GetRealmName() or "Unknown Realm")
-        for _, realmName in ipairs(SortedRealmNames()) do
-            wipe(info)
-            info.text = realmName
-            info.checked = (realmName == current)
-            info.func = function()
+        local btnH = 20
+        local pad  = 6
+        realmList:SetSize(170, #realms * btnH + pad * 2)
+
+        for i, realmName in ipairs(realms) do
+            local rb = CreateFrame("Button", nil, realmList)
+            rb:SetSize(158, btnH)
+            rb:SetPoint("TOPLEFT", realmList, "TOPLEFT", pad, -(pad + (i - 1) * btnH))
+            rb:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+
+            local txt = rb:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            txt:SetAllPoints()
+            txt:SetJustifyH("LEFT")
+            local current = TanaanTracker.currentRealmView or GetRealmName() or "Unknown"
+            if realmName == current then
+                txt:SetText("|cffffff00" .. realmName .. "|r")
+            else
+                txt:SetText(realmName)
+            end
+
+            rb:SetScript("OnClick", function()
                 TanaanTracker.currentRealmView = realmName
-                UIDropDownMenu_SetText(realmDropdown, realmName)
-                -- Update title if needed
-                if f._titleFS then
-                    f._titleFS:SetText("|cff66c0f4Tanaan Tracker|r")
-                end
-                -- Refresh UI slightly later (safe delay)
+                realmBtn:SetText(realmName)
+                realmList:Hide()
                 C_Timer.After(0.05, function()
                     if TanaanTracker.UpdateUI then TanaanTracker.UpdateUI() end
                 end)
-            end
-            UIDropDownMenu_AddButton(info, level)
+            end)
         end
     end
 
-    UIDropDownMenu_Initialize(realmDropdown, f._PopulateRealms)
-    UIDropDownMenu_SetWidth(realmDropdown, 170)
-    UIDropDownMenu_SetText(realmDropdown, TanaanTracker.currentRealmView or (GetRealmName() or "Unknown Realm"))
+    realmBtn:SetScript("OnClick", function()
+        if realmList:IsShown() then
+            realmList:Hide()
+        else
+            RefreshRealmList()
+            realmList:SetPoint("TOPLEFT", realmBtn, "BOTTOMLEFT", 0, -2)
+            realmList:Show()
+        end
+    end)
+
+    f:HookScript("OnHide", function()
+        realmList:Hide()
+    end)
 
     f:HookScript("OnShow", function()
-        local current = TanaanTracker.currentRealmView or (GetRealmName() or "Unknown Realm")
-        UIDropDownMenu_Initialize(realmDropdown, f._PopulateRealms)
-        UIDropDownMenu_SetText(realmDropdown, current)
-        if f._titleFS then
-            f._titleFS:SetText("|cff66c0f4Tanaan Tracker|r")
-        end
+        local current = TanaanTracker.currentRealmView or GetRealmName() or "Unknown"
+        realmBtn:SetText(current)
         C_Timer.After(0.05, function()
             if TanaanTracker.UpdateUI then TanaanTracker.UpdateUI() end
         end)

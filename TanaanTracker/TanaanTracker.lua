@@ -338,13 +338,6 @@ local function announce(msg, where)
     else print("|cffffd200[TanaanTracker]|r " .. msg) end
 end
 
-function TanaanTracker:RunSlash(text)
-    local editBox = ChatEdit_ChooseBoxForSend(DEFAULT_CHAT_FRAME)
-    if not editBox then return end
-    ChatEdit_ActivateChat(editBox)
-    editBox:SetText(text)
-    ChatEdit_OnEnterPressed(editBox)
-end
 
 TanaanTracker.safeTimeAgo = safeTimeAgo
 TanaanTracker.formatCountdown = formatCountdown
