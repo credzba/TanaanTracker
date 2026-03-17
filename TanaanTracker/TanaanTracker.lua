@@ -59,6 +59,7 @@ EF:RegisterEvent("PLAYER_LOGIN")
 EF:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 EF:RegisterEvent("LOOT_OPENED")
 EF:RegisterEvent("CHAT_MSG_ADDON")
+EF:RegisterEvent("CHAT_MSG_MONSTER_YELL")
 
 
 -- alerts setting helpers (default: enabled)
@@ -631,6 +632,22 @@ EF:SetScript("OnEvent", function(_, event, ...)
         end
     elseif event == "CHAT_MSG_ADDON" then
         if TanaanTracker.OnAddonMessage then TanaanTracker.OnAddonMessage(...) end
+    elseif event == "CHAT_MSG_MONSTER_YELL" then
+        local msg = ...
+        if msg then
+            local rares = TanaanTracker.rares
+            for rareName, data in pairs(rares) do
+                if data.spawnYell and msg:find(data.spawnYell, 1, true) then
+                    local now = TanaanTracker:GetServerNow()
+                    TanaanTracker:RealmDB()[rareName] = now
+                    print(string.format("|cff00ff00[TanaanTracker]|r %s spawned — timer reset (next ~%d min).",
+                        rareName, (data.respawn or 3600) / 60))
+                    if TanaanTracker.UpdateUI then TanaanTracker.UpdateUI() end
+                    if TanaanTracker.SendGuildSync then TanaanTracker.SendGuildSync(rareName, now) end
+                    break
+                end
+            end
+        end
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         handleCombatLog(...)
     elseif event == "LOOT_OPENED" then
