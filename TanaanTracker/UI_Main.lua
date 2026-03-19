@@ -1,7 +1,6 @@
 -- TanaanTracker: UI_Main.lua
 local TanaanTracker = TanaanTracker
 local rares, raresOrder = TanaanTracker.rares, TanaanTracker.raresOrder
-local CHECK_TEX = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t"
 
 -------------------------------------------------------------
 -- BACKDROP
@@ -284,8 +283,16 @@ function TanaanTracker.CreateMainFrame()
         nameTxt:SetAllPoints()
         nameTxt:SetJustifyH("LEFT")
 
+        local strike = nameBtn:CreateTexture(nil, "OVERLAY")
+        strike:SetTexture(1, 1, 1, 0.7)
+        strike:SetHeight(1)
+        strike:SetPoint("LEFT", nameTxt, "LEFT", 0, 0)
+        strike:SetWidth(120)
+        strike:Hide()
+
         if TanaanTracker.CharKilledToday(name) then
-            nameTxt:SetText("|cffffd100" .. name .. "|r " .. CHECK_TEX)
+            nameTxt:SetText("|cff888888" .. name .. "|r")
+            strike:Show()
         else
             nameTxt:SetText("|cffffd100" .. name .. "|r")
         end
@@ -386,7 +393,7 @@ function TanaanTracker.CreateMainFrame()
 
         TanaanTracker.rareWidgets[name] = {
             row = row, nameBtn = nameBtn, nameTxt = nameTxt,
-            killedTxt = killedTxt, sinceTxt = sinceTxt, remainTxt = remainTxt, bar = bar
+            killedTxt = killedTxt, sinceTxt = sinceTxt, remainTxt = remainTxt, bar = bar, strike = strike
         }
 
         y = y - 44
@@ -407,6 +414,8 @@ function TanaanTracker.UpdateUI()
     local widgets = TanaanTracker.rareWidgets
     local showBars = TanaanTracker.SHOW_BARS
 
+    local remainingTimes = {}
+
     for _, name in ipairs(raresOrder) do
         local w = widgets[name]
         if w then
@@ -418,6 +427,7 @@ function TanaanTracker.UpdateUI()
                 local remaining = (t + data.respawn) - GetServerTime()
                 if remaining < 0 then remaining = 0 end
                 local remainStr = TanaanTracker.formatCountdown(remaining)
+                remainingTimes[name] = remaining
 
                 if w._lastKilledStr ~= killedStr then
                     w.killedTxt:SetText(killedStr)
@@ -461,12 +471,36 @@ function TanaanTracker.UpdateUI()
             local killedToday = TanaanTracker.CharKilledToday and TanaanTracker.CharKilledToday(name)
             if w._lastKilledToday ~= killedToday then
                 if killedToday then
-                    w.nameTxt:SetText("|cffffd100" .. name .. "|r " .. CHECK_TEX)
+                    w.nameTxt:SetText("|cff888888" .. name .. "|r")
+                    w.strike:Show()
                 else
                     w.nameTxt:SetText("|cffffd100" .. name .. "|r")
+                    w.strike:Hide()
                 end
                 w._lastKilledToday = killedToday
             end
+        end
+    end
+
+    -- Sort rows by remaining time ascending; unknowns go to the bottom
+    local sorted = {}
+    for _, name in ipairs(raresOrder) do
+        sorted[#sorted + 1] = name
+    end
+    table.sort(sorted, function(a, b)
+        local ra = remainingTimes[a]
+        local rb = remainingTimes[b]
+        if ra and rb then return ra < rb end
+        if ra then return true end
+        return false
+    end)
+
+    local f = TanaanTracker.mainFrame
+    for i, name in ipairs(sorted) do
+        local w = widgets[name]
+        if w then
+            w.row:ClearAllPoints()
+            w.row:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -56 - (i - 1) * 44)
         end
     end
 end

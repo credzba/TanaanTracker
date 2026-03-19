@@ -1,22 +1,38 @@
 -- TanaanTracker: Minimap Button
+-- Angle-based positioning: button always stays on the minimap edge
 TanaanTracker = TanaanTracker or {}
 
 -------------------------------------------------
--- SAVED POSITION
+-- SAVED POSITION (angle in radians)
 -------------------------------------------------
-TanaanTrackerMiniDB = TanaanTrackerMiniDB or { x = 0, y = 0 }
+TanaanTrackerMiniDB = TanaanTrackerMiniDB or { angle = math.pi * 0.75 }
+
+-------------------------------------------------
+-- RADIUS: distance from minimap center to button center
+-------------------------------------------------
+local RADIUS = 80
 
 -------------------------------------------------
 -- BUTTON FRAME
 -------------------------------------------------
 local btn = CreateFrame("Button", "TanaanTrackerMinimapButton", Minimap)
+
+-------------------------------------------------
+-- POSITION UPDATE
+-------------------------------------------------
+local function UpdatePosition(angle)
+    TanaanTrackerMiniDB.angle = angle
+    btn:ClearAllPoints()
+    btn:SetPoint("CENTER", Minimap, "CENTER",
+        math.cos(angle) * RADIUS,
+        math.sin(angle) * RADIUS)
+end
 btn:SetWidth(33)
 btn:SetHeight(33)
 btn:SetFrameStrata("MEDIUM")
 btn:SetFrameLevel(8)
 btn:SetMovable(true)
 btn:RegisterForDrag("LeftButton")
-btn:SetUserPlaced(true)
 
 -------------------------------------------------
 -- ICON TEXTURE
@@ -29,15 +45,15 @@ icon:SetHeight(20)
 icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
 
 -------------------------------------------------
--- GRAY / SILVER BORDER (gray as fug boy)
+-- GRAY / SILVER BORDER
 -------------------------------------------------
 local border = btn:CreateTexture(nil, "OVERLAY")
 border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 border:SetWidth(56)
 border:SetHeight(56)
 border:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
-border:SetDesaturated(true)          -- removes the ugly gold
-border:SetVertexColor(0.8, 0.8, 0.8) -- gray man be graying
+border:SetDesaturated(true)
+border:SetVertexColor(0.8, 0.8, 0.8)
 
 -------------------------------------------------
 -- HIGHLIGHT EFFECT
@@ -50,18 +66,22 @@ hl:SetWidth(36)
 hl:SetHeight(36)
 
 -------------------------------------------------
--- DRAGGING (SHIFT + LEFT BUTTON)
+-- DRAGGING: track mouse angle around minimap center
 -------------------------------------------------
 btn:SetScript("OnDragStart", function(self)
-    if IsShiftKeyDown() then
-        self:StartMoving()
-    end
+    self.dragging = true
+    self:SetScript("OnUpdate", function()
+        local mx, my = Minimap:GetCenter()
+        local scale  = UIParent:GetEffectiveScale()
+        local cx, cy = GetCursorPosition()
+        cx, cy = cx / scale, cy / scale
+        UpdatePosition(math.atan2(cy - my, cx - mx))
+    end)
 end)
 
 btn:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    local point, _, _, x, y = self:GetPoint(1)
-    TanaanTrackerMiniDB.x, TanaanTrackerMiniDB.y = x, y
+    self.dragging = false
+    self:SetScript("OnUpdate", nil)
 end)
 
 -------------------------------------------------
@@ -70,18 +90,16 @@ end)
 btn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("|cff00ff00TanaanTracker|r")
-    GameTooltip:AddLine("Shift + Left-Drag to move", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("Drag to move around minimap", 0.8, 0.8, 0.8)
     GameTooltip:AddLine("Left-click: Toggle main window", 1, 1, 1)
     GameTooltip:Show()
 end)
 btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 btn:SetScript("OnClick", function()
-    -- try to toggle main frame safely
     if TanaanTracker.ToggleMainFrame and type(TanaanTracker.ToggleMainFrame) == "function" then
         TanaanTracker.ToggleMainFrame()
     elseif TanaanTracker.mainFrame then
-        -- fallback toggle if no dedicated function exists
         if TanaanTracker.mainFrame:IsShown() then
             TanaanTracker.mainFrame:Hide()
         else
@@ -93,19 +111,9 @@ btn:SetScript("OnClick", function()
 end)
 
 -------------------------------------------------
--- POSITION RESTORE
--------------------------------------------------
-local function RestorePosition()
-    btn:ClearAllPoints()
-    btn:SetPoint("TOPLEFT", Minimap, "BOTTOMLEFT",
-        TanaanTrackerMiniDB.x or 0,
-        TanaanTrackerMiniDB.y or 0)
-end
-RestorePosition()
-
--------------------------------------------------
 -- PUBLIC CREATION CALL
 -------------------------------------------------
 function TanaanTracker.CreateMinimapButton()
+    UpdatePosition(TanaanTrackerMiniDB.angle or math.pi * 0.75)
     btn:Show()
 end
